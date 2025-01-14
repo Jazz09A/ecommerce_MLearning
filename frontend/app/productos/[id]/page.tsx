@@ -1,42 +1,58 @@
-import { ProductDetail } from '@/components/product-detail'
-import React from 'react'
+"use client";
 
-// This would typically come from a database
-const products = [
-  {
-    id: 1,
-    title: 'Producto 1',
-    price: 19.99,
-    description: 'Descripción detallada del Producto 1. Este producto es ideal para aquellos que buscan calidad y rendimiento. Fabricado con los mejores materiales y diseñado para durar.',
-    stock: 10
-  },
-  {
-    id: 2,
-    title: 'Producto 2',
-    price: 29.99,
-    description: 'Descripción detallada del Producto 2. Una excelente opción para quienes valoran la calidad y el diseño. Perfecto para uso diario.',
-    stock: 15
-  },
-  // Add more products as needed
-]
+import { useEffect, useState } from 'react';
+import { ProductDetail } from '@/components/product-detail';
+
+interface Product {
+  product_id: number;
+  name: string;
+  category: string;
+  price: number;
+  stock: number;
+  image: string;
+  description: string;
+  created_at: string;
+}
 
 interface ProductPageProps {
   params: {
-    id: string
-  }
+    id: string;
+  };
 }
 
 export default function ProductPage({ params }: ProductPageProps) {
-  const product = products.find(p => p.id === parseInt(params.id))
+  const [product, setProduct] = useState<Product | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        const response = await fetch(`http://localhost:8000/api/v1/products/${params.id}`);
+        if (!response.ok) {
+          throw new Error('Product not found');
+        }
+        const data: Product = await response.json();
+        setProduct(data);
+      } catch (err) {
+        setError('Error fetching product');
+      }
+    };
+
+    fetchProduct();
+  }, [params.id]);
+
+  if (error) {
+    return <div className="container mx-auto px-4 py-8">{error}</div>;
+  }
 
   if (!product) {
-    return <div className="container mx-auto px-4 py-8">Producto no encontrado</div>
+    return <div className="container mx-auto px-4 py-8">Loading...</div>;
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <ProductDetail product={product} />
+      <ProductDetail product={{...product, id: product.product_id, title: product.name}} />
     </div>
-  )
+  );
 }
 

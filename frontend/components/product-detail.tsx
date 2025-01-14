@@ -5,6 +5,7 @@ import { useCart } from '@/contexts/cart-context'
 import Image from 'next/image'
 import { useState } from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useRouter } from 'next/navigation'
 
 interface ProductDetailProps {
   product: {
@@ -18,12 +19,41 @@ interface ProductDetailProps {
 
 export function ProductDetail({ product }: ProductDetailProps) {
   const [quantity, setQuantity] = useState('1')
-  const { addToCart } = useCart()
+  // const { addToCart } = useCart()
+  const router = useRouter()
 
-  const handleAddToCart = () => {
-    addToCart(product, parseInt(quantity))
-    console.log(`Adding ${quantity} of product ${product.id} to cart`)
-  }
+    const handleAddToCart = async () => {
+    const token = localStorage.getItem('token')
+
+    if (!token) {
+      router.push('/login')
+      return
+    }
+
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/cart/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          product_id: product.id,
+          quantity: quantity,
+        }), // Se envía el product_id y la quantity
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        console.log('Producto agregado al carrito:', data)
+      } else {
+        console.error('Error al agregar al carrito:', data.error)
+      }
+    } catch (error) {
+      console.error('Error al hacer la solicitud:', error)
+    }
+  };
 
   return (
     <div className="grid gap-8 md:grid-cols-2">
@@ -39,7 +69,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
       <div className="flex flex-col gap-4">
         <div className="space-y-2">
           <h1 className="text-3xl font-bold">{product.title}</h1>
-          <p className="text-3xl font-bold">${product.price.toFixed(2)}</p>
+          <p className="text-3xl font-bold">${product.price.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</p>
         </div>
         
         <p className="text-gray-600">{product.description}</p>
