@@ -7,9 +7,11 @@ class Token(BaseModel):
     token_type: str
 
 class User(BaseModel):
+    user_id: Optional[int] = None
     username: str
     email: str
     disabled: Optional[bool] = None
+    payment_method: Optional[str] = None
 
 class UserInDB(User):
     hashed_password: str
@@ -20,7 +22,7 @@ class UserCreate(BaseModel):
     password: str
 
 class UserLogin(BaseModel):
-    username: str
+    email: str
     password: str 
 
 

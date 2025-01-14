@@ -19,9 +19,8 @@ def get_user(email: str):
     connection = sqlite3.connect(DB_PATH)
     cursor = connection.cursor()
 
-    cursor.execute('SELECT username, email, hashed_password, disabled FROM users WHERE email = ?', (email,))
+    cursor.execute('SELECT user_id, username, email, hashed_password, disabled, payment_method FROM users WHERE email = ?', (email,))
     row = cursor.fetchone()
-    print(f"Query result for email '{email}': {row}")
 
     connection.close()
 
@@ -29,11 +28,15 @@ def get_user(email: str):
         return None
 
     user_dict = {
-        "username": row[0],
-        "email": row[1],
-        "hashed_password": row[2],
-        "disabled": row[3]
+        "user_id": row[0],
+        "username": row[1],
+        "email": row[2],
+        "hashed_password": row[3],
+        "disabled": row[4],
+        "payment_method": row[5]
     }
+
+
 
     return UserInDB(**user_dict)
 
@@ -48,14 +51,10 @@ def authenticate_user(email: str, password: str):
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        print(f"Token payload: {payload}")
         email: str = payload.get("sub")
         if email is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
-        print(f"User email from token: {email}")
-
     except JWTError as e:
-        print(f"JWT Error: {e}")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials")
     user = get_user(email)
     if user is None:
@@ -64,7 +63,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 
 @router.post("/login", response_model=Token)
 async def login_for_access_token(user_credentials: UserLogin) -> Any:
-    user = authenticate_user(user_credentials.username, user_credentials.password)
+    user = authenticate_user(user_credentials.email, user_credentials.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -118,3 +117,5 @@ def get_users():
 
     cursor.execute('SELECT * FROM users')
     return cursor.fetchall()
+
+

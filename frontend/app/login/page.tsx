@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
   const router = useRouter()
-  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
 
@@ -22,10 +22,10 @@ export default function LoginPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
       })
       console.log(response)
-      console.log(username)
+      console.log(email)
       console.log(password)
       if (!response.ok) {
         throw new Error('Login failed')
@@ -34,9 +34,11 @@ export default function LoginPage() {
       const data = await response.json()
       // Guarda el token en el almacenamiento local o en un contexto
       localStorage.setItem('token', data.access_token)
-      console.log('el usuario se ha logueado')
-      console.log(data)
-      router.push('/')
+      const redirectUrl = localStorage.getItem('redirectAfterLogin') || '/'
+      localStorage.removeItem('redirectAfterLogin')
+
+      // Redirigir al usuario
+      router.push(redirectUrl)
     } catch (err) {
       setError('Usuario o contraseña incorrectos')
     }
@@ -57,8 +59,8 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="email"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
               />
             </div>
