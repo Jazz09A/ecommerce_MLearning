@@ -1,6 +1,3 @@
-Aquí tienes el contenido del README en formato Markdown:
-
-```markdown
 # Proyecto de E-commerce
 
 Este proyecto es una aplicación de comercio electrónico construida con un frontend en React (Next.js) y un backend en FastAPI. Se integra con Stripe para procesar los pagos.
