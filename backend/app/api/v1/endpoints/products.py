@@ -1,5 +1,5 @@
 import sqlite3
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException
 from typing import List
 from app.models.product import Product
 from app.models.recommendation import Recommendation
@@ -7,15 +7,31 @@ from app.models.recommendation import Recommendation
 DB_PATH = "db/database.db"
 
 router = APIRouter()
-@router.get("/")
+@router.get("/", response_model=list[Product])
 async def get_products():
     connection = sqlite3.connect(DB_PATH)
     cursor = connection.cursor()
     cursor.execute("SELECT * FROM products")
     products = cursor.fetchall()
-    if not products:
+    connection.close()
+
+    # Map each tuple to a dictionary
+    product_list = []
+    for product in products:
+        product_dict = {
+            "product_id": product[0],
+            "name": product[1],
+            "category": product[2],
+            "price": product[3],
+            "stock": product[4],
+            "image": product[5],
+            "description": product[6],
+            "created_at": product[7]
+        }
+        product_list.append(Product(**product_dict))
+    if not product_list:
         raise HTTPException(status_code=404, detail="Products not found")
-    return products
+    return product_list
 
 @router.get("/featured", response_model=List[Product])
 async def get_featured_products():
@@ -31,10 +47,24 @@ async def get_featured_products():
 
 @router.get("/{product_id}", response_model=Product)
 async def get_product(product_id: int):
-    product = next((p for p in products_db if p["product_id"] == product_id), None)
+    connection = sqlite3.connect(DB_PATH)
+    cursor = connection.cursor()
+    cursor.execute("SELECT * FROM products WHERE product_id = ?", (product_id,))
+    product = cursor.fetchone()
+    connection.close()
+
     if product is None:
         raise HTTPException(status_code=404, detail="Product not found")
-    return Product(**product)
+    return Product(
+        product_id=product[0],
+        name=product[1],
+        category=product[2],
+        price=product[3],
+        stock=product[4],
+        image=product[5],
+        description=product[6],
+        created_at=product[7]
+    )
 
 # @router.get("/recommendations", response_model=List[Recommendation])
 # async def get_recommendations(user_id: int = Query(..., description="The ID of the user to get recommendations for")):
@@ -100,7 +130,7 @@ async def update_product(product_id: int, product: Product):
         "description": updated_product[6],
         "created_at": updated_product[7]
     }
-
+    print(product_dict)
     return Product(**product_dict)
 
 @router.delete("/{product_id}", response_model=dict)

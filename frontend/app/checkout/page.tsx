@@ -1,17 +1,20 @@
-"use client";
+'use client'
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements } from '@stripe/react-stripe-js';
-import { PaymentForm } from './payment-form';
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { loadStripe } from '@stripe/stripe-js'
+import { Elements } from '@stripe/react-stripe-js'
+import { PaymentForm } from './payment-form'
 
-const stripePromise = loadStripe('pk_test_51QgsBCCQYCslB2bN9YptptgmFPNaMELFAQvf3klyw7qqWlloOXwYPYv5lLgnFinUU6qAwt5TE9AhlhVUtjOWPIau002gdxReYm');
-
+// Cargar la clave pública de Stripe
+const stripePromise = loadStripe('pk_test_51QgsBCCQYCslB2bN9YptptgmFPNaMELFAQvf3klyw7qqWlloOXwYPYv5lLgnFinUU6qAwt5TE9AhlhVUtjOWPIau002gdxReYm')
 
 export default function CheckoutPage() {
   const [clientSecret, setClientSecret] = useState<string | null>(null)
+  const [subtotal, setSubtotal] = useState<number | null>(null)
+  const [shipping, setShipping] = useState<number | null>(null)
+  const [total, setTotal] = useState<number | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -22,28 +25,38 @@ export default function CheckoutPage() {
       return
     }
 
-    // Fetch the client secret for Stripe
+    // Llamar al backend para crear el PaymentIntent y obtener el client_secret
     fetch('http://localhost:8000/api/v1/cart/checkout', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${token}`,
       },
     })
       .then(res => res.json())
-      .then(data => setClientSecret(data.client_secret))
+      .then(data => {
+        setClientSecret(data.client_secret)
+        setSubtotal(data.subtotal)
+        setShipping(data.shipping)
+        setTotal(data.total)
+      })
       .catch(error => console.error('Error:', error))
   }, [router])
 
-  if (!clientSecret) {
-    return <div>Loading...</div> // You can show a loading spinner here
+  if (!clientSecret || !subtotal || !shipping || !total) {
+    return <div>Loading...</div>
   }
 
   return (
-    <div>
-      <h1>Checkout</h1>
-      <Elements stripe={stripePromise} options={{ clientSecret }}>
-        <PaymentForm clientSecret={clientSecret} />
+    <div className="max-w-md mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-6">Complete su pago</h1>
+      <Elements stripe={stripePromise}>
+        <PaymentForm 
+          clientSecret={clientSecret}
+          subtotal={subtotal}
+          shipping={shipping}
+          total={total}
+        />
       </Elements>
     </div>
   )

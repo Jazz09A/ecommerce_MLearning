@@ -14,22 +14,6 @@ class PaymentRequest(BaseModel):
 stripe.api_key = settings.STRIPE_API_KEY
 DB_PATH = 'db/database.db'
 router = APIRouter()
-
-
-
-@router.post("/")
-async def create_checkout_session():
-    print("create_checkout_session")
-    try:
-        # Crea un PaymentIntent con un monto (en centavos)
-
-        payment_intent = stripe.PaymentIntent.create(
-            amount=5000,  # $50.00 en centavos
-            currency='usd',
-        )
-        return {"client_secret": payment_intent.client_secret}
-    except Exception as e:
-        return {"error": str(e)}
     
 @router.post("/confirm-payment")
 async def confirm_payment(payment_request: PaymentRequest, current_user: User = Depends(get_current_user)):
@@ -71,7 +55,7 @@ async def confirm_payment(payment_request: PaymentRequest, current_user: User = 
 
         # Get the total from the cart
         cursor.execute('''SELECT SUM(price_at_time * quantity) FROM cart_items WHERE cart_id = ?''', (cart_id,))
-        total = cursor.fetchone()[0]
+        total = round(cursor.fetchone()[0], 2)
         print(f"Total amount for cart {cart_id}: {total}")
 
         # Insert the order into the database

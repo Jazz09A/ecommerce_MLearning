@@ -7,7 +7,7 @@ import sqlite3
 
 from app.core.config import settings
 from app.core.security import create_access_token, verify_password, get_password_hash
-from app.models.user import Token, User, UserInDB, UserCreate, UserLogin
+from app.models.user import Token, User, UserInDB, UserCreate, UserLogin, PaymentMethodRequest
 
 
 DB_PATH = 'db/database.db'
@@ -119,3 +119,17 @@ def get_users():
     return cursor.fetchall()
 
 
+@router.put("/update-payment-method", response_model=PaymentMethodRequest)
+async def update_payment_method(request: PaymentMethodRequest, current_user: User = Depends(get_current_user)):
+    connection = sqlite3.connect(DB_PATH)
+    cursor = connection.cursor()
+    
+    try:
+        cursor.execute('''UPDATE users SET payment_method = ? WHERE user_id = ?''', 
+                       (request.payment_method, current_user.user_id))
+        connection.commit()
+        connection.close()
+        
+        return {"message": "Método de pago actualizado exitosamente", "payment_method": request.payment_method}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Error al actualizar el método de pago")

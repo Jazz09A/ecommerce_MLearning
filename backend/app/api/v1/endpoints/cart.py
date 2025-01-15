@@ -21,6 +21,8 @@ DB_PATH = "db/database.db"
 router = APIRouter()
 
 
+class UpdateQuantityRequest(BaseModel):
+    quantity: int
 
 
 @router.post("/add", response_model=Cart)
@@ -163,7 +165,49 @@ async def delete_item_from_cart(cart_id: int, cart_item_id: int):
 
 @router.post("/checkout")
 async def checkout(current_user: User = Depends(get_current_user)):
+    connection = sqlite3.connect(DB_PATH)
+    cursor = connection.cursor()
+    
     # Obtener carrito del usuario
+    cursor.execute('''SELECT cart_id FROM carts WHERE user_id = ? AND status = 'active' ''', (current_user.user_id,))
+    cart = cursor.fetchone()
+
+    if not cart:
+        raise HTTPException(status_code=404, detail="Carrito no encontrado")
+
+    # Calcular total del carrito
+    cursor.execute('''SELECT SUM(price_at_time * quantity) FROM cart_items WHERE cart_id = ?''', (cart[0],))
+    subtotal = cursor.fetchone()[0]
+    
+    # Agregar costo de envío
+    shipping = 5.99
+    total = subtotal + shipping
+
+    try:
+        payment_intent = stripe.PaymentIntent.create(
+            amount=int(total * 100),  # Stripe espera el monto en centavos
+            currency='usd',
+            metadata={
+                'integration_check': 'accept_a_payment',
+                'shipping_cost': shipping
+            },
+        )
+
+        connection.close()
+
+        return {
+            "client_secret": payment_intent.client_secret,
+            "subtotal": subtotal,
+            "shipping": shipping,
+            "total": total
+        }
+
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/cart_by_user_id", response_model=Cart)
+async def get_cart_by_user_id(current_user: User = Depends(get_current_user)):
     connection = sqlite3.connect(DB_PATH)
     cursor = connection.cursor()
     cursor.execute('''SELECT cart_id FROM carts WHERE user_id = ? AND status = 'active' ''', (current_user.user_id,))
@@ -172,34 +216,45 @@ async def checkout(current_user: User = Depends(get_current_user)):
     if not cart:
         raise HTTPException(status_code=404, detail="Carrito no encontrado")
 
-    # Calcular el total del carrito
-    cursor.execute('''SELECT SUM(price_at_time * quantity) FROM cart_items WHERE cart_id = ?''', (cart[0],))
-    total = cursor.fetchone()[0]
+    cursor.execute('''SELECT ci.product_id, ci.quantity, ci.price_at_time, p.name, p.description, p.price
+                     FROM cart_items ci
+                     JOIN products p ON ci.product_id = p.product_id
+                     WHERE ci.cart_id = ?''', (cart[0],))
+    cart_items = cursor.fetchall()
 
-    # Crear el pago en Stripe (modo prueba)
+    items = []
+    for item in cart_items:
+        items.append(CartItem(product_id=item[0], quantity=item[1], price_at_time=item[2]))
+
+    cursor.execute("SELECT created_at, status FROM carts WHERE cart_id = ?", (cart[0],))
+    cart_info = cursor.fetchone()
+
+    cart_model = Cart(cart_id=cart[0], user_id=current_user.user_id, created_at=cart_info[0], status=cart_info[1], items=items)
+
+    if cart_model:
+        return cart_model
+    else:
+        raise HTTPException(status_code=404, detail="Carrito no encontrado")
+
+
+@router.put("/items/{cart_item_id}/update", response_model=None)
+async def update_item_quantity(request: UpdateQuantityRequest, cart_item_id: int):
+    print(request.quantity, cart_item_id)
+    if request.quantity < 0:
+        raise HTTPException(status_code=400, detail="La cantidad no puede ser menor que 0")
+
+    connection = sqlite3.connect(DB_PATH)
+    cursor = connection.cursor()
+
     try:
-        payment_intent = stripe.PaymentIntent.create(
-            amount=int(total * 100),  # Stripe espera el monto en centavos
-            currency='usd',
-            payment_method=current_user.payment_method,  # Aquí el método de pago del usuario
-            confirm=True
-        )
-
-        # Cambiar el estado del carrito y generar la orden
-        cursor.execute('''UPDATE carts SET status = 'processed' WHERE cart_id = ?''', (cart[0],))
-        cursor.execute('''INSERT INTO orders (user_id, total, status) VALUES (?, ?, 'pending')''', (current_user.user_id, total))
-        order_id = cursor.lastrowid
-        connection.commit()
-
-        # Relacionar productos con la orden
-        cursor.execute('''INSERT INTO order_items (order_id, product_id, quantity, price_at_time)
-                          SELECT ?, product_id, quantity, price_at_time FROM cart_items WHERE cart_id = ?''', 
-                     (order_id, cart[0]))
-        connection.commit()
-
+        cursor.execute('''UPDATE cart_items SET quantity = ? WHERE product_id = ?''', (request.quantity, cart_item_id))
+        connection.commit()  # Asegúrate de que esta línea esté siendo ejecutada
+        print(f"Updated cart_item_id={cart_item_id} to quantity={request.quantity}")
+    except Exception as e:
+        connection.rollback()  # Si hay un error, revertimos la transacción
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
         connection.close()
+    
+    return {"message": "Cantidad actualizada exitosamente"}
 
-        return {"message": "Pago procesado exitosamente", "order_id": order_id}
-
-    except stripe.error.StripeError as e:
-        raise HTTPException(status_code=400, detail=str(e))

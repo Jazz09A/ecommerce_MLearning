@@ -26,3 +26,5 @@ class UserLogin(BaseModel):
     password: str 
 
 
+class PaymentMethodRequest(BaseModel):
+    payment_method: str 
