@@ -1,39 +1,43 @@
-import pandas as pd
-from sklearn.neighbors import NearestNeighbors
 import joblib
+import numpy as np
+from sklearn.neighbors import NearestNeighbors
+from app.ml.data_loader import load_user_interactions
 
-def train_knn_model(data: pd.DataFrame):
-    """
-    data: DataFrame con columnas ['user_id', 'product_id', 'rating'].
-    """
-    # Crear matriz usuario-producto
-    user_product_matrix = data.pivot(index="user_id", columns="product_id", values="rating").fillna(0)
+# Cargar el modelo entrenado
+try:
+    model: NearestNeighbors = joblib.load('C:/Users/yuher/OneDrive/Escritorio/proyecto-ecommerce/backend/app/ml/recommendation_model.pkl')
+except FileNotFoundError:
+    model = None
 
-    # Modelo k-NN
-    knn = NearestNeighbors(metric="cosine", algorithm="brute")
-    knn.fit(user_product_matrix)
+def recommend_products(user_id, num_recommendations=5):
+    global model
+    print("model", model)
+    """Recomendar productos basados en el modelo KNN entrenado."""
 
-    # Guardar modelo entrenado
-    joblib.dump(knn, "recommendation_model.pkl")
-    return user_product_matrix
+    # Cargar las interacciones del usuario
+    df = load_user_interactions()
 
-def recommend_for_user(user_id: int, data: pd.DataFrame, k=5):
-    """
-    user_id: ID del usuario para quien generar recomendaciones.
-    data: DataFrame con interacciones.
-    k: Número de vecinos más cercanos.
-    """
-    user_product_matrix = data.pivot(index="user_id", columns="product_id", values="rating").fillna(0)
-    knn = joblib.load("recommendation_model.pkl")
+    # Eliminar duplicados y agregar calificaciones si es necesario
+    df = df.groupby(['user_id', 'product_id']).agg({'rating': 'mean'}).reset_index()
+    print("df funcion recommended products",df)
+    # Crear la matriz de usuario-producto
+    user_item_matrix = df.pivot(index='user_id', columns='product_id', values='rating').fillna(0)
 
-    if user_id not in user_product_matrix.index:
-        return []  # Usuario no encontrado
+    # Verificar si el usuario existe en la matriz
+    if user_id not in user_item_matrix.index:
+        print(f"User ID {user_id} not found in user-item matrix.")
+        return []
 
-    distances, indices = knn.kneighbors(user_product_matrix.loc[[user_id]], n_neighbors=k)
-    
-    # Encontrar productos recomendados
-    similar_users = indices.flatten().tolist()
-    similar_data = user_product_matrix.iloc[similar_users]
-    recommended_products = similar_data.sum(axis=0).sort_values(ascending=False).index.tolist()
+    # Obtener las características del usuario
+    user_vector = user_item_matrix.loc[user_id].values.reshape(1, -1)
+    print("user_vector", user_vector)
 
+    # Ajustar el número de vecinos a la cantidad de usuarios disponibles
+    n_neighbors = min(num_recommendations, len(user_item_matrix) - 1)  # Restar 1 porque el propio usuario no se cuenta
+
+    # Hacer las recomendaciones
+    distances, indices = model.kneighbors(user_vector, n_neighbors=n_neighbors)
+
+    recommended_products = user_item_matrix.columns[indices.flatten()].tolist()
+    print("recommended_products", recommended_products)
     return recommended_products

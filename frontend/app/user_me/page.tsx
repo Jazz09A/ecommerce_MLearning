@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { CreditCard, Package, Settings, User } from 'lucide-react'
+import { CreditCard, Package, Settings, User, LogOut } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -67,6 +67,11 @@ export default function UserMePage() {
 
     fetchUserData()
   }, [])
+
+  const handleLogout = () => {
+    localStorage.removeItem('token') // Elimina el token del localStorage
+    router.push('/login') // Redirige al usuario al login
+  }
 
   if (error) {
     return <div>{error}</div>
@@ -158,7 +163,6 @@ export default function UserMePage() {
               <Card key={product.id}>
                 <CardContent className="p-4">
                   <Image
-
                     src={product.image}
                     alt={product.name}
                     width={200}
@@ -176,6 +180,12 @@ export default function UserMePage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Botón de logout */}
+      <Button onClick={handleLogout} className="w-full mt-4">
+        <LogOut className="mr-2 h-4 w-4" />
+        Logout
+      </Button>
     </div>
   )
 }

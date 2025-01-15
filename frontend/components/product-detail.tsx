@@ -29,7 +29,6 @@ export function ProductDetail({ product }: ProductDetailProps) {
       router.push('/login')
       return
     }
-
     try {
       const response = await fetch('http://localhost:8000/api/v1/cart/add', {
         method: 'POST',
@@ -46,6 +45,28 @@ export function ProductDetail({ product }: ProductDetailProps) {
       const data = await response.json()
 
       if (response.ok) {
+          try {
+            // Hacemos la solicitud para registrar la interacción
+            const response = await fetch(`http://localhost:8000/api/v1/interactions/interactions/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                product_id: product.id,
+                event_type: 'add_to_cart', 
+                rating: 1, 
+              })
+            })
+            if (response.ok) {
+              console.log('Interacción registrada exitosamente')
+            } else {
+              console.error('Error al registrar la interacción:', response.statusText)
+            }
+          } catch (error) {
+            console.error('Error al registrar la interacción:', error)
+        } 
         console.log('Producto agregado al carrito:', data)
       } else {
         console.error('Error al agregar al carrito:', data.error)

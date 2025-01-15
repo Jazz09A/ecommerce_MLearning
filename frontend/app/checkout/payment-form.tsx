@@ -35,8 +35,28 @@ export function PaymentForm({ clientSecret, subtotal, shipping, total }: Payment
     if (error) {
       setError(error.message || 'Pago fallido')
     } else if (paymentIntent?.status === 'succeeded') {
-      // El pago se ha completado con éxito
       const token = localStorage.getItem('token')
+      try {
+        // Hacemos la solicitud para registrar la interacción
+        const response = await fetch(`http://localhost:8000/api/v1/interactions/interactions/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            event_type: 'purchase', 
+            rating: 5, 
+          })
+        })
+        if (response.ok) {
+          console.log('Interacción registrada exitosamente')
+        } else {
+          console.error('Error al registrar la interacción:', response.statusText)
+        }
+      } catch (error) {
+        console.error('Error al registrar la interacción:', error)
+      }
 
       fetch('http://localhost:8000/api/v1/checkout/confirm-payment', {
         method: 'POST',
@@ -50,9 +70,8 @@ export function PaymentForm({ clientSecret, subtotal, shipping, total }: Payment
         }),
       })
         .then(response => response.json())
-        .then(data => {
+        .then(async data => {
           if (data.message === 'Pago y orden confirmados exitosamente') {
-            // Redirigir a la página de éxito
             window.location.href = 'success'
           }
         })

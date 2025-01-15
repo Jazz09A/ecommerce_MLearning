@@ -27,6 +27,7 @@ class UpdateQuantityRequest(BaseModel):
 
 @router.post("/add", response_model=Cart)
 async def add_to_cart(request: AddToCartRequest, current_user: User = Depends(get_current_user)):
+    print("request: ", request) 
     connection = sqlite3.connect(DB_PATH)
     cursor = connection.cursor()
 
@@ -64,7 +65,7 @@ async def add_to_cart(request: AddToCartRequest, current_user: User = Depends(ge
 
         cursor.execute("SELECT * FROM cart_items WHERE cart_id = ?", (cart_id,))
         items_data = cursor.fetchall()
-
+        print("items_data: ", items_data)
         items = [CartItem(cart_item_id=item[0], cart_id=item[1], product_id=item[2], quantity=item[3], price_at_time=item[4]) for item in items_data]
 
         return Cart(cart_id=cart_data[0], user_id=cart_data[1], created_at=cart_data[2], status=cart_data[3], items=items)

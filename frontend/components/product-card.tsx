@@ -40,7 +40,7 @@ export function ProductCard({ title, price, description, href, productId }: Prod
         body: JSON.stringify({
           product_id: productId,
           event_type: 'view', 
-          rating: 0, 
+          rating: 1, 
         })
       })
 

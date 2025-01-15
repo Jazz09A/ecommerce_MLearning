@@ -3,7 +3,7 @@ from pydantic import BaseModel
 # Definir el modelo de base de datos de interacción (esto es solo para referencia)
 class Interaction(BaseModel):
     user_id: int | None = None
-    product_id: int
+    product_id: int | None = None
     event_type: str
     timestamp: str | None = None
     rating: int

@@ -1,35 +1,23 @@
-import sqlite3
-import pandas as pd
 from sklearn.neighbors import NearestNeighbors
-from sklearn.preprocessing import StandardScaler
+import joblib
+from data_loader import load_user_interactions
 
-# Conectar a la base de datos
-conn = sqlite3.connect('database.db')
-cursor = conn.cursor()
+def train_recommendation_model():
+    """Entrenar el modelo de recomendación utilizando KNN."""
+    
+    # Cargar los datos de interacciones
+    df = load_user_interactions()
+    print("df",df)
+    # Crear una matriz de características (user_id, product_id, rating)
+    user_item_matrix = df.pivot(index='user_id', columns='product_id', values='rating').fillna(0)
+    
+    # Entrenar el modelo KNN
+    model = NearestNeighbors(n_neighbors=10, algorithm='ball_tree')
+    model.fit(user_item_matrix.values)
+    
+    # Guardar el modelo entrenado
+    joblib.dump(model, 'C:/Users/yuher/OneDrive/Escritorio/proyecto-ecommerce/backend/app/ml/recommendation_model.pkl')
+    
+    print("Modelo de recomendación entrenado y guardado.")
 
-# Obtener interacciones del usuario
-cursor.execute('SELECT user_id, product_id, rating FROM interactions')
-data = cursor.fetchall()
-
-# Crear DataFrame
-df = pd.DataFrame(data, columns=['user_id', 'product_id', 'rating'])
-
-# Preprocesamiento (normalización si es necesario)
-scaler = StandardScaler()
-df['rating_scaled'] = scaler.fit_transform(df[['rating']])
-
-# Entrenar el modelo KNN
-knn = NearestNeighbors(n_neighbors=5, metric='cosine')
-knn.fit(df[['rating_scaled']])
-
-# Obtener recomendaciones para un usuario
-user_id = 1  # Ejemplo de ID de usuario
-distances, indices = knn.kneighbors(df[df['user_id'] == user_id][['rating_scaled']])
-
-# Guardar las recomendaciones en la base de datos
-for idx in indices[0]:
-    recommended_product = df.iloc[idx]['product_id']
-    cursor.execute('INSERT INTO recommendations (user_id, product_id, score) VALUES (?, ?, ?)',
-                   (user_id, recommended_product, 1))  # Poner el puntaje inicial
-conn.commit()
-conn.close()
+train_recommendation_model()

@@ -35,18 +35,6 @@ export default function ShoppingCart() {
       return;
     }
 
-    // const { error, paymentMethod } = await stripe.createPaymentMethod({
-    //   type: 'card',
-    //   card: elements.getElement(CardElement),
-    // });
-
-    // if (error) {
-    //   console.error(error);
-    //   return;
-    // }
-
-    // const paymentMethodId = paymentMethod.id;
-
     try {
       const response = await fetch('http://localhost:8000/api/v1/update-payment-method', {
         method: 'PUT',
@@ -179,14 +167,33 @@ export default function ShoppingCart() {
       const data = await response.json();
       console.log(data);
       if (response.status === 401) {
-        console.log('Token expired or invalid, redirecting to login...');
+
         localStorage.setItem('redirectAfterLogin', window.location.href);
         router.push('/login');
+      
       } else if (response.ok) {
+        try {
+          // Hacemos la solicitud para registrar la interacción
+          const response = await fetch(`http://localhost:8000/api/v1/interactions/interactions/`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              event_type: 'checkout', 
+              rating: 3, 
+            })
+          })
+        } catch (error) {
+          console.error('Error al registrar la interacción:', error)
+        }
         router.push(`/checkout`);
+        
       } else {
         console.error('Error in checkout:', data.message);
       }
+    
     } catch (error) {
       console.error('Error processing checkout:', error);
     }
